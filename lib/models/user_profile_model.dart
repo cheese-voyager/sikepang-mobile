@@ -1,4 +1,6 @@
-/// Model data untuk profil pengguna / petani SiKePang
+import 'dart:typed_data';
+
+/// Model data untuk profil pengguna atau petani SiKePang
 class UserProfileModel {
   final String nama;
   final String email;
@@ -8,6 +10,7 @@ class UserProfileModel {
   final String nomorTelepon;
   final double luasLahan;
   final String? fotoPath;
+  final Uint8List? fotoBytes;
 
   const UserProfileModel({
     required this.nama,
@@ -18,9 +21,10 @@ class UserProfileModel {
     required this.nomorTelepon,
     required this.luasLahan,
     this.fotoPath,
+    this.fotoBytes,
   });
 
-  /// Menggandakan objek dengan properti yang diperbarui
+  /// Menggandakan objek profil dengan atribut yang diperbarui
   UserProfileModel copyWith({
     String? nama,
     String? email,
@@ -30,6 +34,7 @@ class UserProfileModel {
     String? nomorTelepon,
     double? luasLahan,
     String? fotoPath,
+    Uint8List? fotoBytes,
     bool clearFoto = false,
   }) {
     return UserProfileModel(
@@ -41,7 +46,7 @@ class UserProfileModel {
       nomorTelepon: nomorTelepon ?? this.nomorTelepon,
       luasLahan: luasLahan ?? this.luasLahan,
       fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
+      fotoBytes: clearFoto ? null : (fotoBytes ?? this.fotoBytes),
     );
   }
 }
-

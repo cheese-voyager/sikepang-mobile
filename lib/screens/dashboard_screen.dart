@@ -3,10 +3,9 @@ import '../core/constants/app_colors.dart';
 import '../data/dummy_data.dart';
 import '../models/user_profile_model.dart';
 import '../widgets/commodity_item_card.dart';
-import '../widgets/confirmation_dialog.dart';
 import '../widgets/stat_card.dart';
 
-/// Halaman Beranda (Dashboard) SiKePang
+/// Halaman Beranda (Dashboard) SiKePang dengan tata letak bersih dan ringkas
 class DashboardScreen extends StatelessWidget {
   final UserProfileModel profile;
   final VoidCallback onNavigateToStock;
@@ -26,132 +25,109 @@ class DashboardScreen extends StatelessWidget {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              width: 32,
+              height: 32,
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: AppColors.plantation500.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.plantation200),
               ),
-              child: const Icon(Icons.eco, color: AppColors.leaf400, size: 20),
+              child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'SiKePang',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'Portal Petani Komunitas',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.plantation200,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
+            const Text(
+              'SiKePang',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-            tooltip: 'Notifikasi',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Sistem informasi lokal: tidak ada notifikasi baru.'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner Selamat Datang
+            // Kartu Profil Ringkas (Clean Greeting)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.plantation900, AppColors.plantation700],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.cardShadow,
-                    blurRadius: 16,
-                    offset: Offset(0, 6),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.plantation500.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.plantation400.withValues(alpha: 0.4)),
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: AppColors.plantation500,
+                    backgroundImage: profile.fotoBytes != null
+                        ? MemoryImage(profile.fotoBytes!)
+                        : null,
+                    child: profile.fotoBytes == null
+                        ? Text(
+                            profile.nama.isNotEmpty ? profile.nama[0].toUpperCase() : 'P',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.nama,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        const SizedBox(height: 4),
+                        Row(
                           children: [
-                            const Icon(Icons.verified, size: 12, color: AppColors.leaf400),
-                            const SizedBox(width: 4),
-                            Text(
-                              profile.role,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.plantation500.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                profile.role,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                profile.kelompokTani,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.plantation200,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        profile.kelompokTani,
-                        style: const TextStyle(
-                          color: AppColors.plantation200,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Halo, ${profile.nama}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Pantau panen pangan dan ketersediaan stok komunitas Anda hari ini.',
-                    style: TextStyle(
-                      color: AppColors.plantation100,
-                      fontSize: 12,
-                      height: 1.4,
+                      ],
                     ),
                   ),
                 ],
@@ -160,37 +136,26 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Ringkasan Statistik
-            const Text(
-              'Ringkasan Aktivitas Pertanian',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
+            // 4 Kartu Metrik Statistik Panen
             Row(
               children: [
                 Expanded(
                   child: StatCard(
-                    title: 'Total Stok Masuk',
+                    title: 'Stok Masuk',
                     value: '1.250',
                     unit: 'Kg',
-                    icon: Icons.move_to_inbox_rounded,
+                    icon: Icons.inventory_2_outlined,
                     accentColor: AppColors.plantation600,
-                    subtitle: '+12% bulan ini',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
-                    title: 'Total Disalurkan',
+                    title: 'Tersalurkan',
                     value: '330',
                     unit: 'Kg',
                     icon: Icons.local_shipping_outlined,
                     accentColor: AppColors.info,
-                    subtitle: '4 pengiriman',
                   ),
                 ),
               ],
@@ -200,23 +165,21 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: StatCard(
-                    title: 'Komoditas Terdata',
+                    title: 'Komoditas',
                     value: '${DummyData.commodities.length}',
                     unit: 'Jenis',
-                    icon: Icons.category_outlined,
+                    icon: Icons.grass_rounded,
                     accentColor: AppColors.earth700,
-                    subtitle: 'Pangan pokok lokal',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
-                    title: 'Luas Lahan Olah',
+                    title: 'Luas Lahan',
                     value: '${profile.luasLahan}',
-                    unit: 'Hektar',
+                    unit: 'Ha',
                     icon: Icons.landscape_outlined,
                     accentColor: AppColors.leaf700,
-                    subtitle: 'Lahan produktif aktif',
                   ),
                 ),
               ],
@@ -224,79 +187,12 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // Tombol Aksi Cepat dengan Pop up Konfirmasi
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.plantation50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.plantation200),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: AppColors.plantation800, size: 28),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Uji Coba Dialog Konfirmasi',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.plantation900,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Tekan tombol untuk menguji pop-up konfirmasi aksi lokal.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.plantation700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final confirmed = await ConfirmationDialog.show(
-                        context: context,
-                        title: 'Konfirmasi Sinkronisasi Lokal',
-                        message: 'Apakah Anda ingin memperbarui ringkasan statistik panen lokal sekarang?',
-                        confirmText: 'Ya, Sinkronkan',
-                        cancelText: 'Batal',
-                        icon: Icons.sync_rounded,
-                        iconColor: AppColors.plantation700,
-                      );
-                      if (confirmed && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            backgroundColor: AppColors.plantation700,
-                            content: Text('Statistik panen lokal berhasil disinkronkan!'),
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    child: const Text('Uji Pop-up'),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Daftar Komoditas Pangan
+            // Daftar Komoditas Utama
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Katalog Komoditas Pangan',
+                  'Komoditas Pangan',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -304,7 +200,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${DummyData.commodities.length} Komoditas',
+                  '${DummyData.commodities.length} Terdata',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -314,9 +210,7 @@ class DashboardScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            ...DummyData.commodities.take(4).map(
-                  (c) => CommodityItemCard(commodity: c),
-                ),
+            ...DummyData.commodities.map((c) => CommodityItemCard(commodity: c)),
           ],
         ),
       ),

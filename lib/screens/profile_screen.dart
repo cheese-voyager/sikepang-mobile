@@ -1,12 +1,14 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/app_colors.dart';
 import '../models/user_profile_model.dart';
 import '../widgets/confirmation_dialog.dart';
+import 'auth_screen.dart';
+import 'camera_capture_screen.dart';
 
-/// Halaman Profil Pengguna dengan fitur edit data diri dan foto (Kamera/Galeri)
+/// Halaman Profil Pengguna dengan fitur edit data diri serta kamera dan galeri
 class ProfileScreen extends StatefulWidget {
   final UserProfileModel profile;
   final ValueChanged<UserProfileModel> onUpdateProfile;
@@ -30,7 +32,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
   late TextEditingController _landAreaController;
+  Uint8List? _currentPhotoBytes;
   String? _currentPhotoPath;
+
+  static const String _instagramUrl = 'https://www.instagram.com/i.will24/';
 
   @override
   void initState() {
@@ -52,6 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressController = TextEditingController(text: widget.profile.alamat);
     _phoneController = TextEditingController(text: widget.profile.nomorTelepon);
     _landAreaController = TextEditingController(text: widget.profile.luasLahan.toString());
+    _currentPhotoBytes = widget.profile.fotoBytes;
     _currentPhotoPath = widget.profile.fotoPath;
   }
 
@@ -65,7 +71,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  /// Menampilkan menu modal untuk memilih sumber foto (Kamera atau Galeri)
+  /// Membuka tautan profil Instagram pada peramban eksternal
+  Future<void> _openInstagram() async {
+    final Uri uri = Uri.parse(_instagramUrl);
+    try {
+      final bool launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        // Opsi kedua jika externalApplication tidak dapat membuka tautan
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Tidak dapat membuka tautan Instagram: $e'),
+        ),
+      );
+    }
+  }
+
+  /// Menampilkan lembar modal untuk memilih antara kamera langsung atau galeri berkas
   void _showImagePickerSourceSheet() {
     showModalBottomSheet(
       context: context,
@@ -89,15 +118,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const Text(
-                  'Pilih sumber gambar untuk memperbarui foto profil petani Anda:',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
+                  'Pilih sumber pengambilan foto profil Anda:',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(10),
@@ -108,13 +134,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: const Icon(Icons.camera_alt_rounded, color: AppColors.plantation800),
                   ),
                   title: const Text(
-                    'Ambil Foto dari Kamera',
+                    'Buka Kamera Langsung',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text('Buka kamera gawai dan potret langsung foto baru'),
+                  subtitle: const Text('Aktifkan sensor kamera atau webcam laptop'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _pickImage(ImageSource.camera);
+                    _openLiveCamera();
                   },
                 ),
                 const Divider(height: 12),
@@ -128,16 +154,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: const Icon(Icons.photo_library_rounded, color: AppColors.earth800),
                   ),
                   title: const Text(
-                    'Pilih Foto dari Galeri',
+                    'Pilih dari Galeri Berkas',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: const Text('Jelajahi berkas gambar pada memori perangkat Anda'),
+                  subtitle: const Text('Jelajahi berkas gambar dari memori perangkat'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    _pickImage(ImageSource.gallery);
+                    _pickFromGallery();
                   },
                 ),
-                if (_currentPhotoPath != null) ...[
+                if (_currentPhotoBytes != null || _currentPhotoPath != null) ...[
                   const Divider(height: 12),
                   ListTile(
                     leading: Container(
@@ -152,7 +178,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'Hapus Foto Profil',
                       style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.danger),
                     ),
-                    subtitle: const Text('Kembalikan tampilan avatar ke inisial nama'),
+                    subtitle: const Text('Kembalikan ke avatar inisial nama default'),
                     onTap: () {
                       Navigator.pop(ctx);
                       _removeProfilePhoto();
@@ -167,30 +193,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// Mengeksekusi pemilihan gambar melalui ImagePicker
-  Future<void> _pickImage(ImageSource source) async {
+  /// Membuka layar kamera langsung dengan live preview
+  Future<void> _openLiveCamera() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const CameraCaptureScreen()),
+    );
+
+    if (result != null && mounted) {
+      final bytes = result['bytes'] as Uint8List;
+      final path = result['path'] as String;
+
+      setState(() {
+        _currentPhotoBytes = bytes;
+        _currentPhotoPath = path;
+      });
+
+      final updated = widget.profile.copyWith(
+        fotoBytes: bytes,
+        fotoPath: path,
+      );
+      widget.onUpdateProfile(updated);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.plantation700,
+          content: Text('Foto profil berhasil diambil melalui kamera!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Memilih gambar melalui pemilih galeri berkas
+  Future<void> _pickFromGallery() async {
     try {
       final XFile? selected = await _picker.pickImage(
-        source: source,
+        source: ImageSource.gallery,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
 
       if (selected != null) {
+        final bytes = await selected.readAsBytes();
         if (!mounted) return;
+
         setState(() {
+          _currentPhotoBytes = bytes;
           _currentPhotoPath = selected.path;
         });
 
-        // Langsung simpan ke model profil lokal
-        final updated = widget.profile.copyWith(fotoPath: selected.path);
+        final updated = widget.profile.copyWith(
+          fotoBytes: bytes,
+          fotoPath: selected.path,
+        );
         widget.onUpdateProfile(updated);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.plantation700,
-            content: Text('Foto profil berhasil diperbarui!'),
+            content: Text('Foto profil dari galeri berhasil dipasang!'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -200,18 +263,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppColors.danger,
-          content: Text('Gagal mengakses sumber foto: $e'),
+          content: Text('Gagal memilih gambar dari galeri: $e'),
         ),
       );
     }
   }
 
-  /// Menghapus foto profil lokal dengan dialog konfirmasi
+  /// Menghapus foto profil dengan dialog konfirmasi
   Future<void> _removeProfilePhoto() async {
     final confirmed = await ConfirmationDialog.show(
       context: context,
       title: 'Hapus Foto Profil',
-      message: 'Apakah Anda yakin ingin menghapus foto profil dan kembali menggunakan avatar inisial?',
+      message: 'Apakah Anda yakin ingin menghapus foto profil saat ini?',
       confirmText: 'Ya, Hapus',
       cancelText: 'Batal',
       icon: Icons.delete_outline_rounded,
@@ -223,15 +286,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
 
     setState(() {
+      _currentPhotoBytes = null;
       _currentPhotoPath = null;
     });
+
     final updated = widget.profile.copyWith(clearFoto: true);
     widget.onUpdateProfile(updated);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: AppColors.plantation700,
-        content: Text('Foto profil berhasil dihapus.'),
+        content: Text('Foto profil telah dihapus.'),
       ),
     );
   }
@@ -242,8 +307,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final confirmed = await ConfirmationDialog.show(
       context: context,
-      title: 'Konfirmasi Simpan Profil',
-      message: 'Apakah seluruh data profil yang Anda masukkan sudah benar dan ingin disimpan?',
+      title: 'Simpan Perubahan',
+      message: 'Apakah seluruh data profil yang Anda masukkan ingin disimpan sekarang?',
       confirmText: 'Ya, Simpan',
       cancelText: 'Periksa Lagi',
       icon: Icons.save_outlined,
@@ -259,6 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       alamat: _addressController.text.trim(),
       nomorTelepon: _phoneController.text.trim(),
       luasLahan: double.tryParse(_landAreaController.text.trim()) ?? widget.profile.luasLahan,
+      fotoBytes: _currentPhotoBytes,
       fotoPath: _currentPhotoPath,
     );
 
@@ -267,20 +333,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         backgroundColor: AppColors.plantation700,
-        content: Text('Data profil Anda berhasil disimpan secara lokal!'),
+        content: Text('Perubahan data diri berhasil disimpan!'),
         duration: Duration(seconds: 2),
       ),
     );
   }
 
-  /// Menampilkan dialog konfirmasi keluar aplikasi / logout lokal
+  /// Menampilkan dialog konfirmasi keluar akun dan kembali ke halaman Login
   Future<void> _onLogoutWithConfirmation() async {
     final confirmed = await ConfirmationDialog.show(
       context: context,
       title: 'Konfirmasi Keluar',
-      message: 'Apakah Anda ingin mengakhiri sesi dan keluar dari aplikasi SiKePang?',
-      confirmText: 'Keluar',
-      cancelText: 'Tetap di Sini',
+      message: 'Apakah Anda ingin mengakhiri sesi dan kembali ke halaman masuk?',
+      confirmText: 'Keluar Akun',
+      cancelText: 'Batal',
       icon: Icons.logout_rounded,
       iconColor: AppColors.danger,
       confirmButtonColor: AppColors.danger,
@@ -289,11 +355,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!confirmed) return;
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.plantation700,
-        content: Text('Sesi lokal ditutup. Anda dapat masuk kembali kapan saja.'),
-      ),
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+      (route) => false,
     );
   }
 
@@ -301,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profil Saya'),
+        title: const Text('Profil Petani'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
@@ -314,31 +378,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Area Avatar dan Penggantian Foto Profil
+            // Area Avatar dan Tombol Kamera
             Center(
               child: Stack(
                 children: [
                   Container(
-                    width: 110,
-                    height: 110,
+                    width: 104,
+                    height: 104,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [AppColors.plantation600, AppColors.leaf500],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(color: Colors.white, width: 4),
+                      color: AppColors.plantation600,
+                      border: Border.all(color: Colors.white, width: 3),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x20000000),
-                          blurRadius: 12,
+                          color: Color(0x18000000),
+                          blurRadius: 10,
                           offset: Offset(0, 4),
                         ),
                       ],
                     ),
                     child: ClipOval(
-                      child: _buildAvatarImage(),
+                      child: _buildAvatarWidget(),
                     ),
                   ),
                   Positioned(
@@ -357,7 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: const Icon(
                           Icons.camera_alt_rounded,
                           color: Colors.white,
-                          size: 18,
+                          size: 16,
                         ),
                       ),
                     ),
@@ -366,75 +426,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
-            // Identitas Dasar
             Text(
               widget.profile.nama,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               widget.profile.email,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.plantation100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'PERAN: ${widget.profile.role}',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.plantation800,
-                  letterSpacing: 0.5,
+
+            const SizedBox(height: 16),
+
+            // Tombol Sosial Media Instagram
+            InkWell(
+              onTap: _openInstagram,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF833AB4), // Ungu Instagram
+                      Color(0xFFFD1D1D), // Merah Instagram
+                      Color(0xFFFCB045), // Kuning Instagram
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x28FD1D1D),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.camera_alt_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      '@i.will24',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(
+                      Icons.open_in_new_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                  ],
                 ),
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Formulir Perubahan Data Diri
             Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppColors.border),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(18),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Informasi Data Diri Petani',
+                        'Data Diri Pengguna',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Ubah data profil Anda di bawah ini lalu tekan tombol Simpan Perubahan.',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
 
                       // Nama Lengkap
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(
                           labelText: 'Nama Lengkap',
-                          prefixIcon: Icon(Icons.person_outline),
+                          prefixIcon: Icon(Icons.person_outline, size: 20),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -443,14 +537,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Kelompok Tani
                       TextFormField(
                         controller: _groupController,
                         decoration: const InputDecoration(
-                          labelText: 'Nama Kelompok Tani',
-                          prefixIcon: Icon(Icons.groups_outlined),
+                          labelText: 'Kelompok Tani',
+                          prefixIcon: Icon(Icons.groups_outlined, size: 20),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -459,32 +553,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Alamat
                       TextFormField(
                         controller: _addressController,
                         maxLines: 2,
                         decoration: const InputDecoration(
-                          labelText: 'Alamat Tempat Tinggal / Lahan',
-                          prefixIcon: Icon(Icons.location_on_outlined),
+                          labelText: 'Alamat',
+                          prefixIcon: Icon(Icons.location_on_outlined, size: 20),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Alamat tidak boleh kosong';
+                            return 'Alamat wajib diisi';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Nomor Telepon
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: const InputDecoration(
-                          labelText: 'Nomor Telepon / WhatsApp',
-                          prefixIcon: Icon(Icons.phone_outlined),
+                          labelText: 'Nomor Telepon',
+                          prefixIcon: Icon(Icons.phone_outlined, size: 20),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
@@ -493,35 +587,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Luas Lahan
                       TextFormField(
                         controller: _landAreaController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(
-                          labelText: 'Luas Lahan Garapan (Hektar)',
-                          prefixIcon: Icon(Icons.square_foot_outlined),
+                          labelText: 'Luas Lahan (Ha)',
+                          prefixIcon: Icon(Icons.square_foot_outlined, size: 20),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
                             return 'Luas lahan wajib diisi';
                           }
                           if (double.tryParse(val.trim()) == null) {
-                            return 'Masukkan nilai desimal yang valid';
+                            return 'Masukkan format angka desimal yang valid';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 18),
 
                       // Tombol Simpan
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed: _saveProfileChanges,
-                          icon: const Icon(Icons.save_rounded),
-                          label: const Text('Simpan Perubahan Data Diri'),
+                          child: const Text('Simpan Data Diri'),
                         ),
                       ),
                     ],
@@ -535,32 +628,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAvatarImage() {
-    if (_currentPhotoPath != null) {
-      if (!kIsWeb) {
-        final file = File(_currentPhotoPath!);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            width: 110,
-            height: 110,
-          );
-        }
-      }
-      // Fallback jika berupa image XFile / network / cross-platform
-      return Image.network(
-        _currentPhotoPath!,
+  Widget _buildAvatarWidget() {
+    if (_currentPhotoBytes != null) {
+      return Image.memory(
+        _currentPhotoBytes!,
         fit: BoxFit.cover,
-        width: 110,
-        height: 110,
-        errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(),
+        width: 104,
+        height: 104,
       );
     }
-    return _buildDefaultAvatar();
-  }
 
-  Widget _buildDefaultAvatar() {
     final initial = widget.profile.nama.isNotEmpty
         ? widget.profile.nama.substring(0, 1).toUpperCase()
         : 'P';
@@ -569,7 +646,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         initial,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 42,
+          fontSize: 38,
           fontWeight: FontWeight.bold,
         ),
       ),
